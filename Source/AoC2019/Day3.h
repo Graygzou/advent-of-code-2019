@@ -13,6 +13,7 @@ struct Point2D
 public:
 	int x;
 	int y;
+	int cumulatedSteps;
 
 	// Constructors
 	Point2D() = default;
@@ -21,7 +22,7 @@ public:
 
 	FString Print()
 	{
-		return "(" + FString::FromInt(x) + ", " + FString::FromInt(y) + ")";
+		return "(" + FString::FromInt(x) + ", " + FString::FromInt(y) + ", steps = " + FString::FromInt(cumulatedSteps) + ")";
 	}
 };
 
@@ -57,6 +58,6 @@ public:
 	static bool InsideShape(Point2D point, TArray<Polygon> polygones, Polygon& intersectedPolygon);
 
 	UFUNCTION(BlueprintCallable, Category = "day3")
-	static int ComputeDay3(TArray<FString> directionOfFirstLine, TArray<FString> directionOfSecondLine);
+	static int ComputeDay3(TArray<FString> directionOfFirstLine, TArray<FString> directionOfSecondLine, int& stepNumber);
 
 };

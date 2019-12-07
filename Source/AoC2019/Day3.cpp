@@ -27,6 +27,7 @@ Point2D UDay3::CreateNewPoint(Point2D previousPoint, FString nextDirection)
 	default:
 		break;
 	}
+	newPoint.cumulatedSteps += FCString::Atoi(*nextDirection);
 	return newPoint;
 }
 
@@ -36,24 +37,55 @@ bool UDay3::IntersectExistingLine(Point2D newPoint, Polygon currentPolygone, Poi
 	return false;
 }
 
-bool intersect(int minX, int maxX, int minY, int maxY, Point2D pt1, Point2D pt2, Point2D& intersection)
+//bool intersect(int minX, int maxX, int minY, int maxY, Point2D pt1, Point2D pt2, Point2D& intersection)
+bool intersect(Point2D pt1Wire1, Point2D pt2Wire1, Point2D pt1Wire2, Point2D pt2Wire2, Point2D& intersection)
 {
-	// Study a horizontal line made by pt1 and pt2 crossing with a vertical one made by Xs and Ys
-	bool intersectVert = pt1.y == pt2.y && minX == maxX && pt1.y > minY && pt1.y < maxY && ((pt1.x < minX && pt2.x > minX) || (pt1.x > minX && pt2.x < minX));
-	// Study a vertical line made by pt1 and pt2 crossing with a horizontal one made by Xs and Ys
-	bool intersectHoriz = pt1.x == pt2.x && minY == maxY && pt1.x > minX && pt1.x < maxX && ((pt1.y < minY && pt2.y > minY) || (pt1.y > minY && pt2.y < minY));
+	int minY = FMath::Min(pt1Wire1.y, pt2Wire1.y);
+	int maxY = FMath::Max(pt1Wire1.y, pt2Wire1.y);
+	int minX = FMath::Min(pt1Wire1.x, pt2Wire1.x);
+	int maxX = FMath::Max(pt1Wire1.x, pt2Wire1.x);
 
-	//bool intersectHoriz = ((pt1.x < minX && pt2.x > maxX) || (pt1.x > minX && pt2.x < maxX)) && (maxY > pt1.y && minY < pt1.y);
+	// Study a horizontal line made by pt1 and pt2 crossing with a vertical one made by Xs and Ys
+	bool intersectVert = pt1Wire2.y == pt2Wire2.y && minX == maxX && pt1Wire2.y > minY && pt1Wire2.y < maxY && ((pt1Wire2.x < minX && pt2Wire2.x > minX) || (pt1Wire2.x > minX && pt2Wire2.x < minX));
+	// Study a vertical line made by pt1 and pt2 crossing with a horizontal one made by Xs and Ys
+	bool intersectHoriz = pt1Wire2.x == pt2Wire2.x && minY == maxY && pt1Wire2.x > minX && pt1Wire2.x < maxX && ((pt1Wire2.y < minY && pt2Wire2.y > minY) || (pt1Wire2.y > minY && pt2Wire2.y < minY));
+
 	if (intersectHoriz)
 	{
 		//UE_LOG(LogTemp, Log, TEXT("Horizontal"));
-		intersection = Point2D(pt1.x, maxY);
+		intersection = Point2D(pt1Wire2.x, maxY);
+		intersection.cumulatedSteps = pt1Wire2.cumulatedSteps + FMath::Abs(pt1Wire2.y - maxY);
+
+		// Add the first wire TODO
+		if (pt1Wire1.cumulatedSteps < pt2Wire1.cumulatedSteps)
+		{
+			intersection.cumulatedSteps += pt1Wire1.cumulatedSteps + FMath::Abs(pt1Wire1.x - pt1Wire2.x);
+		}
+		else
+		{
+			intersection.cumulatedSteps += pt2Wire1.cumulatedSteps + FMath::Abs(pt2Wire1.x - pt1Wire2.x);
+		}
+		
+
 		UE_LOG(LogTemp, Log, TEXT("Horizontal %s"), *intersection.Print());
 	}
 	else if(intersectVert)
 	{
 		//UE_LOG(LogTemp, Log, TEXT("Vertical"));
-		intersection = Point2D(minX, pt1.y);
+		intersection = Point2D(minX, pt1Wire2.y);
+		// Compute for the second wire
+		intersection.cumulatedSteps = pt1Wire2.cumulatedSteps + FMath::Abs(pt1Wire2.x - minX);
+
+		// Add the first wire TODO
+		if (pt1Wire1.cumulatedSteps < pt2Wire1.cumulatedSteps)
+		{
+			intersection.cumulatedSteps += pt1Wire1.cumulatedSteps + FMath::Abs(pt1Wire1.y - pt1Wire2.y);
+		}
+		else
+		{
+			intersection.cumulatedSteps += pt2Wire1.cumulatedSteps + FMath::Abs(pt2Wire1.y - pt1Wire2.y);
+		}
+
 		UE_LOG(LogTemp, Log, TEXT("Vertical %s"), *intersection.Print());
 	}
 	return intersectHoriz || intersectVert;
@@ -72,19 +104,19 @@ TArray<Point2D> UDay3::FindIntersectionPoints(Point2D previousPts, Point2D point
 	// For all the polygon side
 	for (int i = 0, j = intersectedPolygon.points.Num() - 1; i < intersectedPolygon.points.Num(); j = i++)
 	{
-		int minY = FMath::Min(intersectedPolygon.points[i].y, intersectedPolygon.points[j].y);
+		/*int minY = FMath::Min(intersectedPolygon.points[i].y, intersectedPolygon.points[j].y);
 		int maxY = FMath::Max(intersectedPolygon.points[i].y, intersectedPolygon.points[j].y);
 		int minX = FMath::Min(intersectedPolygon.points[i].x, intersectedPolygon.points[j].x);
-		int maxX = FMath::Max(intersectedPolygon.points[i].x, intersectedPolygon.points[j].x);
+		int maxX = FMath::Max(intersectedPolygon.points[i].x, intersectedPolygon.points[j].x);*/
 
 		// Compute next direction intersection
 		Point2D intersectionPt;
-		if (!nextDirection.IsEmpty() && intersect(minX, maxX, minY, maxY, pointInside, nextPts, intersectionPt))
+		if (!nextDirection.IsEmpty() && intersect(intersectedPolygon.points[i], intersectedPolygon.points[j], pointInside, nextPts, intersectionPt))
 		{
 			UE_LOG(LogTemp, Log, TEXT("INTERSECT NEXT PTS (pts = %s , %s )"), *pointInside.Print(), *nextPts.Print());
 			intersectionPts.Add(intersectionPt);
 		}
-		if (intersect(minX, maxX, minY, maxY, pointInside, previousPts, intersectionPt))
+		if (intersect(intersectedPolygon.points[i], intersectedPolygon.points[j], previousPts, pointInside, intersectionPt))
 		{
 			UE_LOG(LogTemp, Log, TEXT("INTESECT PREVIOUS PTS (pts = %s , %s )"), *pointInside.Print(), *previousPts.Print());
 			intersectionPts.Add(intersectionPt);
@@ -124,8 +156,9 @@ bool UDay3::InsideShape(Point2D point, TArray<Polygon> polygones, Polygon& inter
 	return result;
 }
 
-int UDay3::ComputeDay3(TArray<FString> directionOfFirstWire, TArray<FString> directionOfSecondWire)
+int UDay3::ComputeDay3(TArray<FString> directionOfFirstWire, TArray<FString> directionOfSecondWire, int& stepNumber)
 {
+	int currentStepNumber = -1;
 	Point2D closestIntersectionPts;
 
 	//UE_LOG(LogTemp, Log, TEXT("Test right, %d"), directionOfFirstWire.Num());
@@ -228,10 +261,18 @@ int UDay3::ComputeDay3(TArray<FString> directionOfFirstWire, TArray<FString> dir
 					closestIntersectionPts = pts;
 					closestLength = newLength;
 				}
+
+				if (currentStepNumber == -1 || pts.cumulatedSteps < currentStepNumber)
+				{
+					UE_LOG(LogTemp, Log, TEXT("=========== number of step = %d"), pts.cumulatedSteps);
+					currentStepNumber = pts.cumulatedSteps;
+				}
 			}
 		}
 		previousPts = currentPts;
 	}
+
+	stepNumber = currentStepNumber;
 
 	// Compute the length of this point from the origin
 	return closestLength;
