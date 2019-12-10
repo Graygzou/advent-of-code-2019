@@ -3,6 +3,13 @@
 
 #include "Day3.h"
 
+
+/*
+TODO I should reduce the stepNumber when the same wire is crossing itself several times.
+	 Simply check when adding a new points that it's not crossing all the previous points.
+	 If so, compute the reduce step.
+*/
+
 Point2D UDay3::CreateNewPoint(Point2D previousPoint, FString nextDirection)
 {
 	Point2D newPoint = previousPoint;
@@ -276,6 +283,4 @@ int UDay3::ComputeDay3(TArray<FString> directionOfFirstWire, TArray<FString> dir
 
 	// Compute the length of this point from the origin
 	return closestLength;
-
-	//return 0;
 }
