@@ -3,7 +3,8 @@
 #include "Day2.h"
 
 
-void ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& index, bool isPositive)
+#pragma region Opcodes operations
+void UDay2::ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& index, bool isPositive)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2)
@@ -65,15 +66,18 @@ void UDay2::StoreInputValue(FOpcode opcode, TArray<FString>& programArray)
 	programArray[opcode.output[0]] = FString::FromInt(opcode.input[0]);
 }
 
-void UDay2::OutputValue(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<int>& outputs)
 {
 	int value = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+
+	// Add the value to the outputs array
+	outputs.Add(value);
+
 	UE_LOG(LogTemp, Log, TEXT("OUTPUT = %d"), value);
 }
 
-/*==================*/
-/*		Day 2		*/
-/*==================*/
+
+// Day 2		
 FOpcode UDay2::CreateOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes)
 {
 	return FOpcode(code, inputs, outputs, modes);
@@ -116,12 +120,13 @@ void UDay2::ComputeAddition(FOpcode opcode, TArray<FString>& programArray)
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
 	programArray[opcode.output[0]] = FString::FromInt(result);
 }
+#pragma endregion
 
-
-void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, int input)
+void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input, TArray<int>& outputs)
 {
 	bool done = false;
 	int currentIndex = 0;
+	int currentInputIndex = 0;
 
 	while(currentIndex < programArray.Num() && !done)
 	{
@@ -168,12 +173,17 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, int input)
 					break;
 				case 3:	// Read Input
 					opcode = CreateOpcode(operationCode, TArray<int> {
-						input,
+						input[currentInputIndex],
 					}, TArray<int> {
 						FCString::Atoi(*programArray[currentIndex + 1]),
 					}, modes);
 
 					StoreInputValue(opcode, programArray);
+
+					if (currentInputIndex < input.Num() - 1)
+					{
+						currentInputIndex++;
+					}
 
 					// Skip next 2 numbers
 					currentIndex += 2;
@@ -183,7 +193,7 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, int input)
 						FCString::Atoi(*programArray[currentIndex + 1]),
 					}, TArray<int>(), modes);
 
-					OutputValue(opcode, programArray);
+					OutputValue(opcode, programArray, outputs);
 
 					// Skip next 2 numbers
 					currentIndex += 2;
@@ -235,21 +245,7 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, int input)
 					currentIndex++;
 					break;
 			}
-
-			// Debug
-			/*
-			UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.code);
-			for (int j = 0; j < opcode.input.Num(); j++)
-			{
-				UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.input[j]);
-			}
-			for (int j = 0; j < opcode.output.Num(); j++)
-			{
-				UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.output[j]);
-			}
-			UE_LOG(LogTemp, Log, TEXT("Array length, %d"), programArray.Num());
-			*/
-			// End Debug
+			opcode.Print();
 		}
 		else
 		{
@@ -257,38 +253,184 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, int input)
 			done = true;
 		}
 	}
-
-	//if (currentIndex > 0 && currentIndex < programArray.Num()) {
-	//	int operationCode = FCString::Atoi(*programArray[currentIndex]);
-	//	if (operationCode != 99) {
-
-	//		Opcode opcode{
-	//			operationCode,
-	//			FCString::Atoi(*programArray[++currentIndex]),
-	//			FCString::Atoi(*programArray[++currentIndex]),
-	//			FCString::Atoi(*programArray[++currentIndex]),
-	//		};
-	//		UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.code);
-	//		UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.firstInput);
-	//		UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.secondInput);
-	//		UE_LOG(LogTemp, Log, TEXT(", %d"), opcode.output);
-	//		UE_LOG(LogTemp, Log, TEXT("Array length, %d"), programArray.Num());
-	//		if (opcode.code == 1)
-	//		{
-	//			// Addition
-	//			int result = FCString::Atoi(*programArray[opcode.firstInput]) + FCString::Atoi(*programArray[opcode.secondInput]);
-	//			programArray[opcode.output] = FString::FromInt(result);
-	//		}
-	//		else if (opcode.code == 2)
-	//		{
-	//			// Product
-	//			//int result = FCString::Atoi(*programArray[opcode.firstInput]) * FCString::Atoi(*programArray[opcode.secondInput]);
-	//			//programArray[opcode.output] = FString::FromInt(result);
-	//		}
-	//	}
-	//}
-	//else
-	//{
-	//	UE_LOG(LogTemp, Log, TEXT("Array length, %d and index %d"), programArray.Num(), currentIndex);
-	//}
 }
+
+/*
+void swap(TArray<int>& combinaison, int index1, int index2)
+{
+	int tmp = combinaison[index1];
+	combinaison[index1] = combinaison[index2];
+	combinaison[index2] = tmp;
+
+}
+
+int UDay2::ComputeOneCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput)
+{
+	int result = 0;
+	for (int i = 0; i < currentCombinaison.Num(); ++i)
+	{
+		// Reset everything back to normal
+		TArray<int> outputs;
+		TArray<FString> program = programArray;
+
+		// Call the program
+		Compute(program, TArray<int> { currentCombinaison[i], programInput }, outputs);
+
+		// Update the values
+		if (outputs.Num() > 0)
+		{
+			result = outputs[0];
+			// assign the new input 
+			programInput = outputs[0];
+		}
+	}
+
+	return result;
+}
+
+int UDay2::ComputeNCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput)
+{
+	bool done = false;
+	int result = 0;
+
+	TArray<FAmplifier> amplifiers;
+
+	// Create 5 Amplifiers
+	for (int i = 0; i < currentCombinaison.Num(); ++i)
+	{
+		amplifiers.Add(FAmplifier(programArray, i));
+	}
+
+	int currentAmplifierIndex = 0;
+	do
+	{
+		// Reset everything back to normal
+		TArray<int> outputs;
+
+		// Call the program
+		amplifiers[currentAmplifierIndex].Compute(programInput, outputs);
+
+		// Update the values
+		if (outputs.Num() > 0)
+		{
+			result = outputs[0];
+			// assign the new input 
+			programInput = outputs[0];
+			currentAmplifierIndex++;
+		}
+	} while (!amplifiers[amplifiers.Num() - 1].IsDone());
+
+	return result;
+}
+
+// See https://en.wikipedia.org/wiki/Heap%27s_algorithm for more info
+int UDay2::FindRightCombinaison(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison = TArray<int>{ 0, 1, 2, 3, 4 })
+{
+	int currentOutput = 0;
+	int finalOutput = currentOutput;
+
+	//TArray<int> currentCombinaison = TArray<int>{ 0, 1, 2, 3, 4 };
+	//TArray<int> currentCombinaison = combinaison;
+	TArray<int> finalCombinaison;
+
+	// Init the stack
+	TArray<int> stackState;
+	stackState.Init(0, currentCombinaison.Num());
+
+	int stackPointer = 0;
+	while (stackPointer < currentCombinaison.Num())
+	{
+		if (stackState[stackPointer] < stackPointer)
+		{
+			if (stackPointer % 2 == 0)
+			{
+				swap(currentCombinaison, 0, stackPointer);
+			}
+			else
+			{
+				swap(currentCombinaison, stackState[stackPointer], stackPointer);
+			}
+			stackState[stackPointer]++;
+			stackPointer = 0;
+
+			// Custom execution the program with the current input
+			
+			//int programInput = input;
+
+			int result = ComputeOneCycle(programArray, currentCombinaison, input);
+			
+			if (result > finalOutput)
+			{
+				finalCombinaison = currentCombinaison;
+				finalOutput = result;
+			}
+			// End Custom
+		}
+		else
+		{
+			stackState[stackPointer] = 0;
+			stackPointer++;
+		}
+	}
+
+	FString t;
+	for (int i = 0; i < finalCombinaison.Num(); ++i)
+	{
+		t += FString::FromInt(finalCombinaison[i]);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("DEJA VU %s"), *t);
+	return finalOutput;
+}
+
+int UDay2::FindRightCombinaisonPart2(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison = TArray<int>{ 5, 6, 7, 8, 9 })
+{
+	int currentOutput = 0;
+	int finalOutput = currentOutput;
+	TArray<int> finalCombinaison;
+
+	// Init the stack
+	TArray<int> stackState;
+	stackState.Init(0, currentCombinaison.Num());
+
+	int stackPointer = 0;
+	while (stackPointer < currentCombinaison.Num())
+	{
+		if (stackState[stackPointer] < stackPointer)
+		{
+			if (stackPointer % 2 == 0)
+			{
+				swap(currentCombinaison, 0, stackPointer);
+			}
+			else
+			{
+				swap(currentCombinaison, stackState[stackPointer], stackPointer);
+			}
+			stackState[stackPointer]++;
+			stackPointer = 0;
+
+			// Custom execution the program with the current input
+			int result = ComputeNCycle(programArray, currentCombinaison, input);
+			if (result > finalOutput)
+			{
+				finalCombinaison = currentCombinaison;
+				finalOutput = result;
+			}
+			// End Custom
+		}
+		else
+		{
+			stackState[stackPointer] = 0;
+			stackPointer++;
+		}
+	}
+
+	FString t;
+	for (int i = 0; i < finalCombinaison.Num(); ++i)
+	{
+		t += FString::FromInt(finalCombinaison[i]);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("DEJA VU %s"), *t);
+	return finalOutput;
+}*/

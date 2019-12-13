@@ -17,6 +17,8 @@ struct FOpcode
 	FOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes);
 	~FOpcode();
 
+	void Print();
+
 	int code;
 	TArray<int> input;
 	TArray<int> output;
