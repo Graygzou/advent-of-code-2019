@@ -11,6 +11,13 @@ FOpcode::FOpcode()
 
 FOpcode::FOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes) : code(code)
 {
+	this->input = TArray<int64>(inputs);
+	this->output = TArray<int64>(outputs);
+	this->modes = modes;
+}
+
+FOpcode::FOpcode(int code, TArray<int64> inputs, TArray<int64> outputs, TArray<int> modes) : code(code)
+{
 	this->input = inputs;
 	this->output = outputs;
 	this->modes = modes;

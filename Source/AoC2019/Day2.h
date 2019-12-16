@@ -17,52 +17,43 @@ class AOC2019_API UDay2 : public UBlueprintFunctionLibrary
 
 public:
 
-	// Day 7 
-	//UFUNCTION(BlueprintCallable, Category = "day7")
-	//static int ComputeOneCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput);
-
-	//UFUNCTION(BlueprintCallable, Category = "day7")
-	//static int ComputeNCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput);
-
-	//UFUNCTION(BlueprintCallable, Category = "day7")
-	//static int FindRightCombinaison(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison);
-
-	//UFUNCTION(BlueprintCallable, Category = "day7")
-	//static int FindRightCombinaisonPart2(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison);
+	// Day 9
+	UFUNCTION(BlueprintCallable, Category = "day9")
+	static void RelativeBaseOffset(FOpcode opcode, TMap<int64, FString>& programMap, int& relativeBase);
 
 	// Day 5 
-	static void ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& index, bool isPositive);
+	static void ComputeIfShouldJump(FOpcode opcode, TMap<int64, FString>& programMap, int& index, bool isPositive, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void StoreInputValue(FOpcode opcode, TArray<FString>& programArray);
+	static void StoreInputValue(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<int>& outputs);
+	static void OutputValue(FOpcode opcode, TMap<int64, FString>& programMap, TArray<int64>& outputs, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void JumpIfTrue(FOpcode opcode, TArray<FString>& programArray, int& index);
+	static void JumpIfTrue(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void JumpIfFalse(FOpcode opcode, TArray<FString>& programArray, int& index);
+	static void JumpIfFalse(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void ComputeIsLessThan(FOpcode opcode, TArray<FString>& programArray);
+	static void ComputeIsLessThan(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day5")
-	static void ComputeIsEquals(FOpcode opcode, TArray<FString>& programArray);
+	static void ComputeIsEquals(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase);
 
 	// Day 2 
-	static FOpcode CreateOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes);
+	static FOpcode CreateOpcode(int code, TArray<int64> inputs, TArray<int64> outputs, TArray<int> modes);
 
 	UFUNCTION(BlueprintCallable, Category = "day2")
-	static void ComputeAddition(FOpcode opcode, TArray<FString>& programArray);
+	static void ComputeAddition(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase);
 
 	UFUNCTION(BlueprintCallable, Category = "day2")
-	static void ComputeMultiplication(FOpcode opcode, TArray<FString>& programArray);
+	static void ComputeMultiplication(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase);
 
 	// Main
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "day 2 main function"), Category = "day2")
-	static void Compute( UPARAM(ref) TArray<FString>& programArray, TArray<int> input, TArray<int>& outputs);
+	static void Compute( UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs);
 
 	/*UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", DisplayName = "Create Object From Blueprint", CompactNodeTitle = "Create", Keywords = "new create blueprint"), Category = Game)
 	static UObject* NewObjectFromBlueprint(UObject* WorldContextObject, UClass* UC);*/

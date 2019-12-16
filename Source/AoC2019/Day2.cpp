@@ -4,7 +4,78 @@
 
 
 #pragma region Opcodes operations
-void UDay2::ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& index, bool isPositive)
+
+void GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int parameterIndex, int currentBase, int64& res)
+{
+	res = 0;
+	if (opcode.modes.Num() > parameterIndex)
+	{
+		if (opcode.modes[parameterIndex] == 1)
+		{
+			res = opcode.input[parameterIndex];
+		}
+		else if (opcode.modes[parameterIndex] == 2)
+		{
+			int64 index = currentBase + opcode.input[parameterIndex];
+			if (programMap.Contains(index))
+			{
+				res = FCString::Atoi64(*programMap[index]);
+			}
+			else
+			{
+				res = 0;
+			}
+		}
+		else // We assume it's in 0 mode aka position mode
+		{
+			if (programMap.Contains(opcode.input[parameterIndex]))
+			{
+				res = FCString::Atoi64(*programMap[opcode.input[parameterIndex]]);
+			}
+			else
+			{
+				res = 0;
+			}
+		}
+	}
+	else
+	{
+		if (programMap.Contains(opcode.input[parameterIndex]))
+		{
+			res = FCString::Atoi64(*programMap[opcode.input[parameterIndex]]);
+		}
+		else
+		{
+			res = 0;
+		}
+	}
+}
+
+void GetOutputBasedOnMode(FOpcode opcode, int parameterIndex, int currentBase, int64& res)
+{
+	if (opcode.modes.Num() > parameterIndex && opcode.modes[parameterIndex] == 2)
+	{
+		res = currentBase + opcode.output[0];
+	}
+	else
+	{
+		res = opcode.output[0];
+	}
+}
+
+void UDay2::RelativeBaseOffset(FOpcode opcode, TMap<int64, FString>& programMap, int& relativeBase)
+{
+	// Use the mode here
+	//int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi64(*programMap[opcode.input[0]]);
+	int64 input1;
+	GetInputBasedOnMode(opcode, programMap, 0, relativeBase, input1);
+
+	// Apply the operation
+	relativeBase += input1;
+}
+
+
+void UDay2::ComputeIfShouldJump(FOpcode opcode, TMap<int64, FString>& programMap, int& index, bool isPositive, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2)
@@ -14,8 +85,10 @@ void UDay2::ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, i
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1); //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
 
 	if (isPositive && input1 != 0 || !isPositive && !input1)
 	{
@@ -27,48 +100,73 @@ void UDay2::ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, i
 	}
 }
 
-void UDay2::JumpIfTrue(FOpcode opcode, TArray<FString>& programArray, int& index)
+void UDay2::JumpIfTrue(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase)
 {
-	ComputeIfShouldJump(opcode, programArray, index, true);
+	ComputeIfShouldJump(opcode, programMap, index, true, currentBase);
 }
 
-void UDay2::JumpIfFalse(FOpcode opcode, TArray<FString>& programArray, int& index)
+void UDay2::JumpIfFalse(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase)
 {
-	ComputeIfShouldJump(opcode, programArray, index, false);
+	ComputeIfShouldJump(opcode, programMap, index, false, currentBase);
 }
 
-void UDay2::ComputeIsLessThan(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::ComputeIsLessThan(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1); //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi((opcode.modes.Num() > 0 && opcode.modes[0] == 2 ? *programArray[opcode.input[currentBase]] : *programArray[opcode.input[0]]));
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = input1 < input2 ? FString::FromInt(1) : FString::FromInt(0);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, input1 < input2 ? FString::FromInt(1) : FString::FromInt(0));
 }
 
-void UDay2::ComputeIsEquals(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::ComputeIsEquals(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = input1 == input2 ? FString::FromInt(1) : FString::FromInt(0);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, input1 == input2 ? FString::FromInt(1) : FString::FromInt(0));
 }
 
 
-void UDay2::StoreInputValue(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::StoreInputValue(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
-	//int value = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
 
+	int64 value;
+	GetOutputBasedOnMode(opcode, 0, currentBase, value);
+	/*
+	if (opcode.modes.Num() > 0 && opcode.modes[0] == 2)
+	{
+		value = currentBase + opcode.output[0];
+	}
+	else
+	{
+		value = opcode.output[0];
+	}*/
+	/*int64 value;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, value);*/
+	
 	// Right now "Parameters that an instruction wri	tes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(opcode.input[0]);
+	char* temp[30];
+	sprintf(*temp, "%llu", opcode.input[0]);
+	programMap.Add(value, FString(*temp));
+	
 }
 
-void UDay2::OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<int>& outputs)
+void UDay2::OutputValue(FOpcode opcode, TMap<int64, FString>& programMap, TArray<int64>& outputs, int currentBase)
 {
-	int value = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	int64 value;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, value);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
 
 	// Add the value to the outputs array
 	outputs.Add(value);
@@ -78,13 +176,13 @@ void UDay2::OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<in
 
 
 // Day 2		
-FOpcode UDay2::CreateOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes)
+FOpcode UDay2::CreateOpcode(int code, TArray<int64> inputs, TArray<int64> outputs, TArray<int> modes)
 {
 	return FOpcode(code, inputs, outputs, modes);
 }
 
 
-void UDay2::ComputeMultiplication(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::ComputeMultiplication(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2 || opcode.output.Num() < 1)
@@ -94,16 +192,23 @@ void UDay2::ComputeMultiplication(FOpcode opcode, TArray<FString>& programArray)
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
-	int result = input1 * input2;
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 result = input1 * input2;
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(result);
+	char temp[30];
+	sprintf(temp, "%llu", result);
+
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, FString(temp));
 }
 
 
-void UDay2::ComputeAddition(FOpcode opcode, TArray<FString>& programArray)
+void UDay2::ComputeAddition(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2 || opcode.output.Num() < 1)
@@ -113,24 +218,41 @@ void UDay2::ComputeAddition(FOpcode opcode, TArray<FString>& programArray)
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
-	int result = input1 + input2;
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 result = input1 + input2;
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(result);
+	char temp[30];
+	sprintf(temp, "%llu", result);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, FString(temp));
+	//programMap.Add(opcode.output[0], FString::FromInt(result));
 }
 #pragma endregion
 
-void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input, TArray<int>& outputs)
+void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs)
 {
 	bool done = false;
-	int currentIndex = 0;
+	int pointerIndex = 0;
 	int currentInputIndex = 0;
+	int currentBase = 0;
 
-	while(currentIndex < programArray.Num() && !done)
+	// Transform array into a map
+	int initSize = programArray.Num();
+	TMap<int64, FString> programMap;
+
+	for (int i = 0; i < programArray.Num(); i++)
 	{
-		FString operationCodeStr = programArray[currentIndex].Reverse(); //FCString::Atoi(*programArray[currentIndex]);
+		programMap.Add(i, programArray[i]);
+	}
+
+	while(pointerIndex < initSize && !done)
+	{
+		FString operationCodeStr = programMap[pointerIndex].Reverse(); //FCString::Atoi(*programArray[currentIndex]);
 		
 		// Real opcode in a string (2 first numbers because we reversed the string)
 		FString o("");
@@ -138,7 +260,7 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input
 		{
 			o += operationCodeStr[i];
 		}
-		int operationCode = FCString::Atoi(*o.Reverse());
+		int operationCode = FCString::Atoi64(*o.Reverse());
 
 		// Gather all the modes available (The rest of the string
 		TArray<int> modes;
@@ -154,31 +276,31 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input
 			{
 				case 1:	// Addition
 				case 2:	// Multiplication
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex+1]),
-						FCString::Atoi(*programArray[currentIndex+2]),
-					}, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex+3]),
+					opcode = CreateOpcode(operationCode, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex+1]),
+						FCString::Atoi64(*programMap[pointerIndex+2]),
+					}, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex+3]),
 					}, modes);
 					if (operationCode == 1)
 					{
-						ComputeAddition(opcode, programArray);
+						ComputeAddition(opcode, programMap, currentBase);
 					}
 					else
 					{
-						ComputeMultiplication(opcode, programArray);
+						ComputeMultiplication(opcode, programMap, currentBase);
 					}
 					// Skip next 4 numbers
-					currentIndex += 4;
+					pointerIndex += 4;
 					break;
 				case 3:	// Read Input
-					opcode = CreateOpcode(operationCode, TArray<int> {
+					opcode = CreateOpcode(operationCode, TArray<int64> {
 						input[currentInputIndex],
-					}, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex + 1]),
+					}, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 1]),
 					}, modes);
 
-					StoreInputValue(opcode, programArray);
+					StoreInputValue(opcode, programMap, currentBase);
 
 					if (currentInputIndex < input.Num() - 1)
 					{
@@ -186,55 +308,65 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input
 					}
 
 					// Skip next 2 numbers
-					currentIndex += 2;
+					pointerIndex += 2;
 					break;
 				case 4: // Output
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex + 1]),
-					}, TArray<int>(), modes);
+					opcode = CreateOpcode(operationCode, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 1]),
+					}, TArray<int64>(), modes);
 
-					OutputValue(opcode, programArray, outputs);
+					OutputValue(opcode, programMap, outputs, currentBase);
 
 					// Skip next 2 numbers
-					currentIndex += 2;
+					pointerIndex += 2;
 					break;
 				case 5: // jump if true
 				case 6: // jump if false
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex + 1]),
-						FCString::Atoi(*programArray[currentIndex + 2]),
-					}, TArray<int>(), modes);
+					opcode = CreateOpcode(operationCode, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 1]),
+						FCString::Atoi64(*programMap[pointerIndex + 2]),
+					}, TArray<int64>(), modes);
 
 					if (operationCode == 5)
 					{
-						JumpIfTrue(opcode, programArray, currentIndex);
+						JumpIfTrue(opcode, programMap, pointerIndex, currentBase);
 					}
 					else
 					{
-						JumpIfFalse(opcode, programArray, currentIndex);
+						JumpIfFalse(opcode, programMap, pointerIndex, currentBase);
 					}
 
 					break;
 				case 7: // less then
 				case 8: // equals
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex + 1]),
-						FCString::Atoi(*programArray[currentIndex + 2]),
-					}, TArray<int> {
-						FCString::Atoi(*programArray[currentIndex + 3]),
+					opcode = CreateOpcode(operationCode, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 1]),
+						FCString::Atoi64(*programMap[pointerIndex + 2]),
+					}, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 3]),
 					}, modes);
 
 					if (operationCode == 7)
 					{
-						ComputeIsLessThan(opcode, programArray);
+						ComputeIsLessThan(opcode, programMap, currentBase);
 					}
 					else
 					{
-						ComputeIsEquals(opcode, programArray);
+						ComputeIsEquals(opcode, programMap, currentBase);
 					}
 
 					// Skip next 4 numbers
-					currentIndex += 4;
+					pointerIndex += 4;
+					break;
+				case 9:
+					opcode = CreateOpcode(operationCode, TArray<int64> {
+						FCString::Atoi64(*programMap[pointerIndex + 1]),
+					}, TArray<int64>(), modes);
+
+					RelativeBaseOffset(opcode, programMap, currentBase);
+
+					// Skip next 2 numbers
+					pointerIndex += 2;
 					break;
 				case 99:
 					// HALT
@@ -242,7 +374,7 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input
 					break;
 				default:
 					UE_LOG(LogTemp, Log, TEXT("wtf is that = %d ?"), operationCode);
-					currentIndex++;
+					done = true;
 					break;
 			}
 			opcode.Print();
@@ -254,183 +386,3 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int> input
 		}
 	}
 }
-
-/*
-void swap(TArray<int>& combinaison, int index1, int index2)
-{
-	int tmp = combinaison[index1];
-	combinaison[index1] = combinaison[index2];
-	combinaison[index2] = tmp;
-
-}
-
-int UDay2::ComputeOneCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput)
-{
-	int result = 0;
-	for (int i = 0; i < currentCombinaison.Num(); ++i)
-	{
-		// Reset everything back to normal
-		TArray<int> outputs;
-		TArray<FString> program = programArray;
-
-		// Call the program
-		Compute(program, TArray<int> { currentCombinaison[i], programInput }, outputs);
-
-		// Update the values
-		if (outputs.Num() > 0)
-		{
-			result = outputs[0];
-			// assign the new input 
-			programInput = outputs[0];
-		}
-	}
-
-	return result;
-}
-
-int UDay2::ComputeNCycle(UPARAM(ref) TArray<FString>& programArray, TArray<int> currentCombinaison, int programInput)
-{
-	bool done = false;
-	int result = 0;
-
-	TArray<FAmplifier> amplifiers;
-
-	// Create 5 Amplifiers
-	for (int i = 0; i < currentCombinaison.Num(); ++i)
-	{
-		amplifiers.Add(FAmplifier(programArray, i));
-	}
-
-	int currentAmplifierIndex = 0;
-	do
-	{
-		// Reset everything back to normal
-		TArray<int> outputs;
-
-		// Call the program
-		amplifiers[currentAmplifierIndex].Compute(programInput, outputs);
-
-		// Update the values
-		if (outputs.Num() > 0)
-		{
-			result = outputs[0];
-			// assign the new input 
-			programInput = outputs[0];
-			currentAmplifierIndex++;
-		}
-	} while (!amplifiers[amplifiers.Num() - 1].IsDone());
-
-	return result;
-}
-
-// See https://en.wikipedia.org/wiki/Heap%27s_algorithm for more info
-int UDay2::FindRightCombinaison(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison = TArray<int>{ 0, 1, 2, 3, 4 })
-{
-	int currentOutput = 0;
-	int finalOutput = currentOutput;
-
-	//TArray<int> currentCombinaison = TArray<int>{ 0, 1, 2, 3, 4 };
-	//TArray<int> currentCombinaison = combinaison;
-	TArray<int> finalCombinaison;
-
-	// Init the stack
-	TArray<int> stackState;
-	stackState.Init(0, currentCombinaison.Num());
-
-	int stackPointer = 0;
-	while (stackPointer < currentCombinaison.Num())
-	{
-		if (stackState[stackPointer] < stackPointer)
-		{
-			if (stackPointer % 2 == 0)
-			{
-				swap(currentCombinaison, 0, stackPointer);
-			}
-			else
-			{
-				swap(currentCombinaison, stackState[stackPointer], stackPointer);
-			}
-			stackState[stackPointer]++;
-			stackPointer = 0;
-
-			// Custom execution the program with the current input
-			
-			//int programInput = input;
-
-			int result = ComputeOneCycle(programArray, currentCombinaison, input);
-			
-			if (result > finalOutput)
-			{
-				finalCombinaison = currentCombinaison;
-				finalOutput = result;
-			}
-			// End Custom
-		}
-		else
-		{
-			stackState[stackPointer] = 0;
-			stackPointer++;
-		}
-	}
-
-	FString t;
-	for (int i = 0; i < finalCombinaison.Num(); ++i)
-	{
-		t += FString::FromInt(finalCombinaison[i]);
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("DEJA VU %s"), *t);
-	return finalOutput;
-}
-
-int UDay2::FindRightCombinaisonPart2(UPARAM(ref) TArray<FString>& programArray, int input, TArray<int> currentCombinaison = TArray<int>{ 5, 6, 7, 8, 9 })
-{
-	int currentOutput = 0;
-	int finalOutput = currentOutput;
-	TArray<int> finalCombinaison;
-
-	// Init the stack
-	TArray<int> stackState;
-	stackState.Init(0, currentCombinaison.Num());
-
-	int stackPointer = 0;
-	while (stackPointer < currentCombinaison.Num())
-	{
-		if (stackState[stackPointer] < stackPointer)
-		{
-			if (stackPointer % 2 == 0)
-			{
-				swap(currentCombinaison, 0, stackPointer);
-			}
-			else
-			{
-				swap(currentCombinaison, stackState[stackPointer], stackPointer);
-			}
-			stackState[stackPointer]++;
-			stackPointer = 0;
-
-			// Custom execution the program with the current input
-			int result = ComputeNCycle(programArray, currentCombinaison, input);
-			if (result > finalOutput)
-			{
-				finalCombinaison = currentCombinaison;
-				finalOutput = result;
-			}
-			// End Custom
-		}
-		else
-		{
-			stackState[stackPointer] = 0;
-			stackPointer++;
-		}
-	}
-
-	FString t;
-	for (int i = 0; i < finalCombinaison.Num(); ++i)
-	{
-		t += FString::FromInt(finalCombinaison[i]);
-	}
-
-	UE_LOG(LogTemp, Log, TEXT("DEJA VU %s"), *t);
-	return finalOutput;
-}*/

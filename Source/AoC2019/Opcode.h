@@ -15,12 +15,13 @@ struct FOpcode
 
 	FOpcode();
 	FOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes);
+	FOpcode(int code, TArray<int64> inputs, TArray<int64> outputs, TArray<int> modes);
 	~FOpcode();
 
 	void Print();
 
 	int code;
-	TArray<int> input;
-	TArray<int> output;
+	TArray<int64> input;
+	TArray<int64> output;
 	TArray<int> modes;
 };
