@@ -21,6 +21,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "day9")
 	static void RelativeBaseOffset(FOpcode opcode, TMap<int64, FString>& programMap, int& relativeBase);
 
+	static void GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int parameterIndex, int currentBase, int64& res);
+
+	static void GetOutputBasedOnMode(FOpcode opcode, int parameterIndex, int currentBase, int64& res);
+
 	// Day 5 
 	static void ComputeIfShouldJump(FOpcode opcode, TMap<int64, FString>& programMap, int& index, bool isPositive, int currentBase);
 
@@ -53,7 +57,7 @@ public:
 
 	// Main
 	UFUNCTION(BlueprintCallable, meta = (DisplayName = "day 2 main function"), Category = "day2")
-	static void Compute( UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs);
+	static void Compute( UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs, bool& finished);
 
 	/*UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", DisplayName = "Create Object From Blueprint", CompactNodeTitle = "Create", Keywords = "new create blueprint"), Category = Game)
 	static UObject* NewObjectFromBlueprint(UObject* WorldContextObject, UClass* UC);*/

@@ -20,11 +20,14 @@ public:
 
 	int inputSetting;
 	int InstructionPointer;
-	TArray<FString> instructions;
+	TMap<int64, FString> instructions;
+	//TArray<FString> instructions;
 	bool isDone = false;
 	bool hasReadSettings = false;
+	int initProgramSize;
+	int currentBase;
 
-	void Compute(int input, TArray<int>& outputs);
+	void Compute(TArray<int64> input, TArray<int64>& outputs, int maxOutput);
 	bool IsDone();
 	void Print();
 };

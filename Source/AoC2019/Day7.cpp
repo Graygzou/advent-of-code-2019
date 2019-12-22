@@ -116,10 +116,10 @@ int UDay7::ComputeNCycle(UPARAM(ref) TArray<FString> programArray, TArray<int> c
 	do
 	{
 		// Reset everything back to normal
-		TArray<int> outputs;
+		TArray<int64> outputs;
 
 		// Call the program
-		amplifiers[currentAmplifierIndex].Compute(programInput, outputs);
+		amplifiers[currentAmplifierIndex].Compute(TArray<int64>{programInput}, outputs, 1);
 
 		// Update the values
 		if (outputs.Num() > 0)

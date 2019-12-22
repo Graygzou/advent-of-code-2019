@@ -13,7 +13,15 @@ FAmplifier::FAmplifier()
 FAmplifier::FAmplifier(TArray<FString> instructions, int inputSetting) : InstructionPointer(0)
 {
 	this->inputSetting = inputSetting;
-	this->instructions = instructions;
+	for (int i = 0; i < instructions.Num(); i++)
+	{
+		this->instructions.Add(i, instructions[i]);
+	}
+
+	initProgramSize = instructions.Num();
+
+	// Init the base
+	currentBase = 0;
 }
 
 FAmplifier::~FAmplifier()
@@ -21,8 +29,83 @@ FAmplifier::~FAmplifier()
 
 }
 
+#pragma region Mode functions
+void GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int parameterIndex, int currentBase, int64& res)
+{
+	res = 0;
+	if (opcode.modes.Num() > parameterIndex)
+	{
+		if (opcode.modes[parameterIndex] == 1)
+		{
+			res = opcode.input[parameterIndex];
+		}
+		else if (opcode.modes[parameterIndex] == 2)
+		{
+			int64 index = currentBase + opcode.input[parameterIndex];
+			if (programMap.Contains(index))
+			{
+				res = FCString::Atoi64(*programMap[index]);
+			}
+			else
+			{
+				res = 0;
+			}
+		}
+		else // We assume it's in 0 mode aka position mode
+		{
+			if (programMap.Contains(opcode.input[parameterIndex]))
+			{
+				res = FCString::Atoi64(*programMap[opcode.input[parameterIndex]]);
+			}
+			else
+			{
+				res = 0;
+			}
+		}
+	}
+	else
+	{
+		if (programMap.Contains(opcode.input[parameterIndex]))
+		{
+			res = FCString::Atoi64(*programMap[opcode.input[parameterIndex]]);
+		}
+		else
+		{
+			res = 0;
+		}
+	}
+}
+
+void GetOutputBasedOnMode(FOpcode opcode, int parameterIndex, int currentBase, int64& res)
+{
+	if (opcode.modes.Num() > parameterIndex && opcode.modes[parameterIndex] == 2)
+	{
+		res = currentBase + opcode.output[0];
+	}
+	else
+	{
+		res = opcode.output[0];
+	}
+}
+#pragma endregion
+
+#pragma region Base Offset function
+
+void RelativeBaseOffset(FOpcode opcode, TMap<int64, FString>& programMap, int& relativeBase)
+{
+	// Use the mode here
+	//int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi64(*programMap[opcode.input[0]]);
+	int64 input1;
+	GetInputBasedOnMode(opcode, programMap, 0, relativeBase, input1);
+
+	// Apply the operation
+	relativeBase += input1;
+}
+
+#pragma endregion
+
 #pragma region Opcodes operations
-void ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& index, bool isPositive)
+void ComputeIfShouldJump(FOpcode opcode, TMap<int64, FString>& programMap, int& index, bool isPositive, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2)
@@ -32,8 +115,10 @@ void ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& ind
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1); //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
 
 	if (isPositive && input1 != 0 || !isPositive && !input1)
 	{
@@ -45,48 +130,60 @@ void ComputeIfShouldJump(FOpcode opcode, TArray<FString>& programArray, int& ind
 	}
 }
 
-void JumpIfTrue(FOpcode opcode, TArray<FString>& programArray, int& index)
+void JumpIfTrue(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase)
 {
-	ComputeIfShouldJump(opcode, programArray, index, true);
+	ComputeIfShouldJump(opcode, programMap, index, true, currentBase);
 }
 
-void JumpIfFalse(FOpcode opcode, TArray<FString>& programArray, int& index)
+void JumpIfFalse(FOpcode opcode, TMap<int64, FString>& programMap, int& index, int currentBase)
 {
-	ComputeIfShouldJump(opcode, programArray, index, false);
+	ComputeIfShouldJump(opcode, programMap, index, false, currentBase);
 }
 
-void ComputeIsLessThan(FOpcode opcode, TArray<FString>& programArray)
+void ComputeIsLessThan(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1); //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi((opcode.modes.Num() > 0 && opcode.modes[0] == 2 ? *programArray[opcode.input[currentBase]] : *programArray[opcode.input[0]]));
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = input1 < input2 ? FString::FromInt(1) : FString::FromInt(0);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, input1 < input2 ? FString::FromInt(1) : FString::FromInt(0));
 }
 
-void ComputeIsEquals(FOpcode opcode, TArray<FString>& programArray)
+void ComputeIsEquals(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = input1 == input2 ? FString::FromInt(1) : FString::FromInt(0);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, input1 == input2 ? FString::FromInt(1) : FString::FromInt(0));
 }
 
 
-void StoreInputValue(FOpcode opcode, TArray<FString>& programArray)
+void StoreInputValue(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
-	//int value = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	int64 value = 0;
+	GetOutputBasedOnMode(opcode, 0, currentBase, value);
 
-	// Right now "Parameters that an instruction wri	tes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(opcode.input[0]);
+	// Right now "Parameters that an instruction writes to will never be in immediate mode"
+	char temp[100];
+	sprintf(temp, "%lld", opcode.input[0]);
+	programMap.Add(value, FString(temp));
 }
 
-void OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<int>& outputs)
+void OutputValue(FOpcode opcode, TMap<int64, FString>& programMap, TArray<int64>& outputs, int currentBase)
 {
-	int value = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	int64 value;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, value);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
 
 	// Add the value to the outputs array
 	outputs.Add(value);
@@ -97,13 +194,13 @@ void OutputValue(FOpcode opcode, TArray<FString>& programArray, TArray<int>& out
 /*==================*/
 /*		Day 2		*/
 /*==================*/
-FOpcode CreateOpcode(int code, TArray<int> inputs, TArray<int> outputs, TArray<int> modes)
+FOpcode CreateOpcode(int code, TArray<int64> inputs, TArray<int64> outputs, TArray<int> modes)
 {
 	return FOpcode(code, inputs, outputs, modes);
 }
 
 
-void ComputeMultiplication(FOpcode opcode, TArray<FString>& programArray)
+void ComputeMultiplication(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2 || opcode.output.Num() < 1)
@@ -113,16 +210,23 @@ void ComputeMultiplication(FOpcode opcode, TArray<FString>& programArray)
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
-	int result = input1 * input2;
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 result = input1 * input2;
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(result);
+	char temp[30];
+	sprintf(temp, "%lld", result);
+
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, FString(temp));
 }
 
 
-void ComputeAddition(FOpcode opcode, TArray<FString>& programArray)
+void ComputeAddition(FOpcode opcode, TMap<int64, FString>& programMap, int currentBase)
 {
 	// Simple check to avoid crashes
 	if (opcode.input.Num() < 2 || opcode.output.Num() < 1)
@@ -132,21 +236,28 @@ void ComputeAddition(FOpcode opcode, TArray<FString>& programArray)
 	}
 
 	// Use the mode here
-	int input1 = opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
-	int input2 = opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
-	int result = input1 + input2;
+	int64 input1;
+	int64 input2;
+	GetInputBasedOnMode(opcode, programMap, 0, currentBase, input1);  //opcode.modes.Num() > 0 && opcode.modes[0] ? opcode.input[0] : FCString::Atoi(*programArray[opcode.input[0]]);
+	GetInputBasedOnMode(opcode, programMap, 1, currentBase, input2);  //opcode.modes.Num() > 1 && opcode.modes[1] ? opcode.input[1] : FCString::Atoi(*programArray[opcode.input[1]]);
+	int64 result = input1 + input2;
 
 	// Right now "Parameters that an instruction writes to will never be in immediate mode"
-	programArray[opcode.output[0]] = FString::FromInt(result);
+	char temp[30];
+	sprintf(temp, "%lld", result);
+	int64 res;
+	GetOutputBasedOnMode(opcode, 2, currentBase, res);
+	programMap.Add(res, FString(temp));
 }
 #pragma endregion
 
-void FAmplifier::Compute(int currentInput, TArray<int>& outputs)
+void FAmplifier::Compute(TArray<int64> input, TArray<int64>& outputs, int maxOutput)
 {
 	bool hasOutputs = false;
 	int currentInputIndex = 0;
 
-	while (this->InstructionPointer < this->instructions.Num() && !this->isDone && !hasOutputs)
+	
+	while (this->InstructionPointer < this->initProgramSize && !this->isDone && !hasOutputs)
 	{
 		FString operationCodeStr = instructions[this->InstructionPointer].Reverse(); //FCString::Atoi(*programArray[currentIndex]);
 
@@ -156,7 +267,7 @@ void FAmplifier::Compute(int currentInput, TArray<int>& outputs)
 		{
 			o += operationCodeStr[i];
 		}
-		int operationCode = FCString::Atoi(*o.Reverse());
+		int operationCode = FCString::Atoi64(*o.Reverse());
 
 		// Gather all the modes available (The rest of the string
 		TArray<int> modes;
@@ -172,97 +283,100 @@ void FAmplifier::Compute(int currentInput, TArray<int>& outputs)
 			{
 			case 1:	// Addition
 			case 2:	// Multiplication
-				opcode = CreateOpcode(operationCode, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 2]),
-				}, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 3]),
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 2]),
+				}, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 3]),
 				}, modes);
 				if (operationCode == 1)
 				{
-					ComputeAddition(opcode, this->instructions);
+					ComputeAddition(opcode, this->instructions, currentBase);
 				}
 				else
 				{
-					ComputeMultiplication(opcode, this->instructions);
+					ComputeMultiplication(opcode, this->instructions, currentBase);
 				}
 				// Skip next 4 numbers
 				this->InstructionPointer += 4;
 				break;
 			case 3:	// Read Input
-				if (!hasReadSettings)
-				{
-					this->hasReadSettings = true;
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						inputSetting,
-					}, TArray<int> {
-						FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-					}, modes);
-				}
-				else
-				{
-					opcode = CreateOpcode(operationCode, TArray<int> {
-						currentInput,
-					}, TArray<int> {
-						FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-					}, modes);
-				}
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					input[currentInputIndex],
+				}, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+				}, modes);
 
-				StoreInputValue(opcode, this->instructions);
+				StoreInputValue(opcode, this->instructions, currentBase);
+
+				if (currentInputIndex < input.Num() - 1)
+				{
+					currentInputIndex++;
+				}
 
 				// Skip next 2 numbers
 				this->InstructionPointer += 2;
 				break;
 			case 4: // Output
-				opcode = CreateOpcode(operationCode, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-				}, TArray<int>(), modes);
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+				}, TArray<int64>(), modes);
 
-				OutputValue(opcode, this->instructions, outputs);
+				OutputValue(opcode, this->instructions, outputs, currentBase);
 
 				// SUPSEND FOR NOW
-				hasOutputs = true;
+				hasOutputs = outputs.Num() >= maxOutput;
 
 				// Skip next 2 numbers
 				this->InstructionPointer += 2;
 				break;
 			case 5: // jump if true
 			case 6: // jump if false
-				opcode = CreateOpcode(operationCode, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 2]),
-				}, TArray<int>(), modes);
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 2]),
+				}, TArray<int64>(), modes);
 
 				if (operationCode == 5)
 				{
-					JumpIfTrue(opcode, this->instructions, this->InstructionPointer);
+					JumpIfTrue(opcode, this->instructions, this->InstructionPointer, currentBase);
 				}
 				else
 				{
-					JumpIfFalse(opcode, this->instructions, this->InstructionPointer);
+					JumpIfFalse(opcode, this->instructions, this->InstructionPointer, currentBase);
 				}
 
 				break;
 			case 7: // less then
 			case 8: // equals
-				opcode = CreateOpcode(operationCode, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 1]),
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 2]),
-				}, TArray<int> {
-					FCString::Atoi(*this->instructions[this->InstructionPointer + 3]),
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 2]),
+				}, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 3]),
 				}, modes);
 
 				if (operationCode == 7)
 				{
-					ComputeIsLessThan(opcode, this->instructions);
+					ComputeIsLessThan(opcode, this->instructions, currentBase);
 				}
 				else
 				{
-					ComputeIsEquals(opcode, this->instructions);
+					ComputeIsEquals(opcode, this->instructions, currentBase);
 				}
 
 				// Skip next 4 numbers
 				this->InstructionPointer += 4;
+				break;
+			case 9:
+				opcode = CreateOpcode(operationCode, TArray<int64> {
+					FCString::Atoi64(*this->instructions[this->InstructionPointer + 1]),
+				}, TArray<int64>(), modes);
+
+				RelativeBaseOffset(opcode, this->instructions, currentBase);
+
+				// Skip next 2 numbers
+				this->InstructionPointer += 2;
 				break;
 			case 99:
 				// HALT
@@ -270,7 +384,7 @@ void FAmplifier::Compute(int currentInput, TArray<int>& outputs)
 				break;
 			default:
 				UE_LOG(LogTemp, Log, TEXT("wtf is that = %d ?"), operationCode);
-				this->InstructionPointer++;
+				this->isDone = true;
 				break;
 			}
 			//opcode.Print();

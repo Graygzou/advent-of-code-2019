@@ -5,7 +5,7 @@
 
 #pragma region Opcodes operations
 
-void GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int parameterIndex, int currentBase, int64& res)
+void UDay2::GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int parameterIndex, int currentBase, int64& res)
 {
 	res = 0;
 	if (opcode.modes.Num() > parameterIndex)
@@ -51,7 +51,7 @@ void GetInputBasedOnMode(FOpcode opcode, TMap<int64, FString> programMap, int pa
 	}
 }
 
-void GetOutputBasedOnMode(FOpcode opcode, int parameterIndex, int currentBase, int64& res)
+void UDay2::GetOutputBasedOnMode(FOpcode opcode, int parameterIndex, int currentBase, int64& res)
 {
 	if (opcode.modes.Num() > parameterIndex && opcode.modes[parameterIndex] == 2)
 	{
@@ -156,7 +156,7 @@ void UDay2::StoreInputValue(FOpcode opcode, TMap<int64, FString>& programMap, in
 	/*int64 value;
 	GetInputBasedOnMode(opcode, programMap, 0, currentBase, value);*/
 	
-	// Right now "Parameters that an instruction wri	tes to will never be in immediate mode"
+	// Right now "Parameters that an instruction writes to will never be in immediate mode"
 	char* temp[30];
 	sprintf(*temp, "%llu", opcode.input[0]);
 	programMap.Add(value, FString(*temp));
@@ -234,7 +234,7 @@ void UDay2::ComputeAddition(FOpcode opcode, TMap<int64, FString>& programMap, in
 }
 #pragma endregion
 
-void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs)
+void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int64> input, TArray<int64>& outputs, bool& finished)
 {
 	bool done = false;
 	int pointerIndex = 0;
@@ -385,4 +385,5 @@ void UDay2::Compute(UPARAM(ref) TArray<FString>& programArray, TArray<int64> inp
 			done = true;
 		}
 	}
+	finished = done;
 }
